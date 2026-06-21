@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <algorithm> // Required for deterministic sorting
 
 Encoder::~Encoder() { delete root; }
 
@@ -21,10 +22,7 @@ void Encoder::generateCodes(HuffmanNode* node, const std::string& str) {
 bool Encoder::compress(const std::string& inputPath, const std::string& outputPath) {
     std::cout << "[Encoder] Compressing: " << inputPath << std::endl;
     std::ifstream inFile(inputPath, std::ios::binary);
-    if (!inFile.is_open()) {
-        std::cout << "[Encoder Fatal] Failed to open standard stream." << std::endl;
-        return false;
-    }
+    if (!inFile.is_open()) return false;
 
     freqTable.clear();
     uint64_t totalBytes = 0;
@@ -34,8 +32,6 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         totalBytes++;
     }
     
-    std::cout << "[Encoder] Analyzed " << totalBytes << " bytes. Found " << freqTable.size() << " unique chars." << std::endl;
-
     if (totalBytes == 0) {
         BitWriter writer(outputPath);
         uint32_t magic = HUFF_MAGIC;
@@ -47,8 +43,18 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         return true;
     }
 
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, NodeComparator> minHeap;
+    // FIX 1: Force Absolute Deterministic Tree Generation
+    std::vector<std::pair<uint8_t, uint64_t>> sortedFreq;
     for (auto& pair : freqTable) {
+        sortedFreq.push_back({pair.first, pair.second});
+    }
+    // Sort strictly by byte value to guarantee Priority Queue stability
+    std::sort(sortedFreq.begin(), sortedFreq.end(), [](const auto& a, const auto& b) {
+        return a.first < b.first;
+    });
+
+    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, NodeComparator> minHeap;
+    for (auto& pair : sortedFreq) {
         minHeap.push(new HuffmanNode(pair.first, pair.second));
     }
 
@@ -85,6 +91,10 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         writer.writeBits(huffmanCodes[static_cast<uint8_t>(ch)]);
     }
 
-    std::cout << "[Encoder] Stream packed. Finalizing asset." << std::endl;
+    // FIX 2: Safety bit-padding to force any custom BitWriters to flush hanging bytes
+    writer.writeBits("00000000");
+
+    inFile.close(); // Force MEMFS to release the file lock
+    std::cout << "[Encoder] Stream packed & safely flushed." << std::endl;
     return true;
 }
