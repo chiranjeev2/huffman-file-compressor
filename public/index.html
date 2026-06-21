@@ -127,10 +127,12 @@
 
                     // 4. Clean file download naming layout rules
                     if (isCompress) {
-                        const lastDot = file.name.lastIndexOf('.');
-                        const base = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
-                        link.download = base + ".huff";
+                        // Keep the original extension and just add .huff to the end
+                        // Example: "Skyscanner_Prep.pdf" becomes "Skyscanner_Prep.pdf.huff"
+                        link.download = file.name + ".huff";
                     } else {
+                        // Remove .huff, leaving the original extension perfectly intact
+                        // Example: "Skyscanner_Prep.pdf.huff" becomes "Skyscanner_Prep.pdf"
                         link.download = file.name.replace(".huff", "");
                     }
                     link.click();
