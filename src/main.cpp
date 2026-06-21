@@ -5,9 +5,16 @@
 #include "Decoder.hpp"
 
 void printStats(const std::string& orig, const std::string& comp) {
+    // Explicit check to ensure std::filesystem doesn't throw an error inside the WASM sandbox
+    if (!std::filesystem::exists(orig) || !std::filesystem::exists(comp)) {
+        return;
+    }
     auto origSize = std::filesystem::file_size(orig);
     auto compSize = std::filesystem::file_size(comp);
-    double ratio = (static_cast<double>(compSize) / origSize) * 100.0;
+    double ratio = 0.0;
+    if (origSize > 0) {
+        ratio = (static_cast<double>(compSize) / origSize) * 100.0;
+    }
     std::cout << "\n=== Compression Report ===\n"
               << "Original Size:   " << origSize << " bytes\n"
               << "Compressed Size: " << compSize << " bytes\n"
@@ -47,12 +54,39 @@ int main(int argc, char* argv[]) {
 // These are the core C API hooks for the web browser
 extern "C" {
     int compress(const char* inputPath, const char* outputPath) {
+        if (!inputPath || !outputPath) return -1;
+        
+        std::string srcPath(inputPath);
+        std::string dstPath(outputPath);
+
+        // Force relative path mapping prefix if not present to ensure MEMFS hit consistency
+        if (srcPath.find('/') == std::string::npos && srcPath.find("\\") == std::string::npos) {
+            srcPath = "./" + srcPath;
+        }
+        if (dstPath.find('/') == std::string::npos && dstPath.find("\\") == std::string::npos) {
+            dstPath = "./" + dstPath;
+        }
+
         Encoder enc;
-        return enc.compress(std::string(inputPath), std::string(outputPath)) ? 0 : -1;
+        bool status = enc.compress(srcPath, dstPath);
+        return status ? 0 : -1;
     }
 
     int decompress(const char* inputPath, const char* outputPath) {
+        if (!inputPath || !outputPath) return -1;
+
+        std::string srcPath(inputPath);
+        std::string dstPath(outputPath);
+
+        if (srcPath.find('/') == std::string::npos && srcPath.find("\\") == std::string::npos) {
+            srcPath = "./" + srcPath;
+        }
+        if (dstPath.find('/') == std::string::npos && dstPath.find("\\") == std::string::npos) {
+            dstPath = "./" + dstPath;
+        }
+
         Decoder dec;
-        return dec.decompress(std::string(inputPath), std::string(outputPath)) ? 0 : -1;
+        bool status = dec.decompress(srcPath, dstPath);
+        return status ? 0 : -1;
     }
 }
