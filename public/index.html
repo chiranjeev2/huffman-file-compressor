@@ -34,8 +34,8 @@
 <script>
     let huffModule;
 
-    // Emscripten exposes the instantiation module via the export name
-    huffman_wasm().then(instance => {
+    // Use the official Emscripten default initialization target promise
+    Module().then(instance => {
         huffModule = instance;
         document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via WebAssembly.";
     }).catch(err => {
