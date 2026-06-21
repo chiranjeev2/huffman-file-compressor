@@ -89,4 +89,4 @@ extern "C" {
         bool status = dec.decompress(srcPath, dstPath);
         return status ? 0 : -1;
     }
-}
+} 
