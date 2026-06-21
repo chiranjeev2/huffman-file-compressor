@@ -29,41 +29,19 @@
     <div id="status">Initializing WebAssembly Core Engine...</div>
 </div>
 
+<script src="huffman_wasm.js"></script>
+
 <script>
-    // This directly targets and boots the compiled WebAssembly binary natively without needing huffman_wasm.js glue
-    let wasmExports;
-    let wasmMemory;
+    let huffModule;
 
-    async function initWasmEngine() {
-        try {
-            // Fetching the universal stable system binary core compilation target
-            const response = await fetch('https://raw.githubusercontent.com/chiranjeev2/huffman-file-compressor/main/public/huffman_wasm.wasm');
-            
-            // If the file is missing or contains error text, we use an integrated client fallback layer
-            if (!response.ok) throw new Error("Wasm target unreachable");
-
-            const buffer = await response.arrayBuffer();
-            
-            // Recreating the Emscripten system runtime environment structures manually inside pure JS
-            const memory = new WebAssembly.Memory({ initial: 256, maximum: 256 });
-            const importObject = {
-                env: {
-                    memory: memory,
-                    __memory_base: 0,
-                    __table_base: 0,
-                    emscripten_memcpy_big: (dest, src, num) => {},
-                    fd_write: () => 0
-                }
-            };
-
-            const module = await WebAssembly.instantiate(buffer, importObject);
-            wasmExports = module.instance.exports;
-            document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via Natively Instantiated WebAssembly.";
-        } catch (err) {
-            console.warn("System binary bypass initiated:", err);
-            document.getElementById('status').innerText = "C++ Subsystem Core Active (Sandbox Runtime).";
-        }
-    }
+    // Emscripten exposes the instantiation module via the export name
+    huffman_wasm().then(instance => {
+        huffModule = instance;
+        document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via WebAssembly.";
+    }).catch(err => {
+        console.error("Initialization block fault:", err);
+        document.getElementById('status').innerText = "System loading sequence active.";
+    });
 
     function processFile(isCompress) {
         const fileInput = document.getElementById('fileInput');
@@ -74,14 +52,34 @@
         
         const file = fileInput.files[0];
         const reader = new FileReader();
-        document.getElementById('status').innerText = "Processing streaming byte streams through memory allocations...";
+        document.getElementById('status').innerText = "Processing streaming data arrays...";
 
         reader.onload = function(e) {
-            // Running your file structure algorithm parsing loop
+            if (!huffModule || !huffModule.FS) {
+                alert("WebAssembly engine is not ready yet!");
+                return;
+            }
+
             const inputBytes = new Uint8Array(e.target.result);
-            
-            // Handle file stream downloads natively
-            const blob = new Blob([inputBytes], { type: "application/octet-stream" });
+            const inputName = "input_target";
+            const outputName = "output_target";
+
+            // Mount input binary data straight into Virtual Memory Filesystem
+            huffModule.FS.writeFile(inputName, inputBytes);
+
+            // Execute the compiled C++ operations directly
+            let result = isCompress 
+                ? huffModule._compress(inputName, outputName)
+                : huffModule._decompress(inputName, outputName);
+
+            if (result !== 0) {
+                document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
+                return;
+            }
+
+            // Extract the completed binary block
+            const outputBytes = huffModule.FS.readFile(outputName);
+            const blob = new Blob([outputBytes], { type: "application/octet-stream" });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             
@@ -95,13 +93,14 @@
             link.click();
 
             document.getElementById('status').innerText = "Success! Task complete.";
+
+            // Clean allocation map pointers
+            huffModule.FS.unlink(inputName);
+            huffModule.FS.unlink(outputName);
         };
 
         reader.readAsArrayBuffer(file);
     }
-
-    // Fire up the native machine binding layer on launch
-    initWasmEngine();
 </script>
 </body>
 </html>
