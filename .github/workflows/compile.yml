@@ -27,7 +27,7 @@ jobs:
           -s EXPORTED_FUNCTIONS="['_compress', '_decompress']" \
           -s ALLOW_MEMORY_GROWTH=1 \
           -s USES_DYNAMIC_ALLOC=1 \
-          -s EXTRA_EXPORTED_RUNTIME_METHODS="['FS']" \
+          -s EXTRA_EXPORTED_RUNTIME_METHODS="['FS', 'ccall']" \
           -o public/huffman_wasm.js
 
     - name: Push Compiled C++ Assets to Repository Tree

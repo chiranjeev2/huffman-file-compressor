@@ -77,8 +77,6 @@
     <script src="huffman_wasm.js"></script>
 
     <script>
-        // Emscripten exposes 'Module' globally when MODULARIZE is disabled.
-        // We bind our success listener directly to its runtime initialization event hooks.
         var isEngineReady = false;
 
         Module.onRuntimeInitialized = function () {
@@ -93,7 +91,7 @@
                 return;
             }
 
-            if (!isEngineReady || !Module.FS) {
+            if (!isEngineReady || !Module.FS || !Module.ccall) {
                 alert("WebAssembly engine is not fully initialized yet!");
                 return;
             }
@@ -111,10 +109,10 @@
                     // 1. Mount input binary data straight into Virtual Memory Filesystem
                     Module.FS.writeFile(inputName, inputBytes);
 
-                    // 2. Execute the compiled C++ operations directly via global scope symbols
+                    // 2. Execute the compiled C++ operations via ccall (Safely bridges JS strings to C++ memory pointers)
                     let result = isCompress
-                        ? Module._compress(inputName, outputName)
-                        : Module._decompress(inputName, outputName);
+                        ? Module.ccall('compress', 'number', ['string', 'string'], [inputName, outputName])
+                        : Module.ccall('decompress', 'number', ['string', 'string'], [inputName, outputName]);
 
                     if (result !== 0) {
                         document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
