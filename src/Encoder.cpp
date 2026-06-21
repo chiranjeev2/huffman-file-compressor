@@ -2,7 +2,7 @@
 #include "BitReaderWriter.hpp"
 #include <queue>
 #include <vector>
-#include <string>   // Added explicitly
+#include <string>
 #include <fstream>
 #include <iostream>
 
@@ -11,7 +11,7 @@ Encoder::~Encoder() { delete root; }
 void Encoder::generateCodes(HuffmanNode* node, const std::string& str) {
     if (!node) return;
     if (node->isLeaf()) {
-        huffmanCodes[node->data] = str.empty() ? "0" : str; // Handle single character edge-case
+        huffmanCodes[node->data] = str.empty() ? "0" : str; 
         return;
     }
     generateCodes(node->left, str + "0");
@@ -19,10 +19,13 @@ void Encoder::generateCodes(HuffmanNode* node, const std::string& str) {
 }
 
 bool Encoder::compress(const std::string& inputPath, const std::string& outputPath) {
+    std::cout << "[Encoder] Compressing: " << inputPath << std::endl;
     std::ifstream inFile(inputPath, std::ios::binary);
-    if (!inFile.is_open()) return false;
+    if (!inFile.is_open()) {
+        std::cout << "[Encoder Fatal] Failed to open standard stream." << std::endl;
+        return false;
+    }
 
-    // 1. Compute frequencies
     freqTable.clear();
     uint64_t totalBytes = 0;
     char ch;
@@ -31,7 +34,9 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         totalBytes++;
     }
     
-    if (totalBytes == 0) { // Edge Case: Empty File
+    std::cout << "[Encoder] Analyzed " << totalBytes << " bytes. Found " << freqTable.size() << " unique chars." << std::endl;
+
+    if (totalBytes == 0) {
         BitWriter writer(outputPath);
         uint32_t magic = HUFF_MAGIC;
         uint64_t size = 0;
@@ -42,7 +47,6 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         return true;
     }
 
-    // 2. Build Tree
     std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, NodeComparator> minHeap;
     for (auto& pair : freqTable) {
         minHeap.push(new HuffmanNode(pair.first, pair.second));
@@ -56,10 +60,8 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
     }
     root = minHeap.top();
 
-    // 3. Map Codes
     generateCodes(root, "");
 
-    // 4. Write to Custom Binary Format
     BitWriter writer(outputPath);
     auto& outStream = writer.getStream();
 
@@ -83,5 +85,6 @@ bool Encoder::compress(const std::string& inputPath, const std::string& outputPa
         writer.writeBits(huffmanCodes[static_cast<uint8_t>(ch)]);
     }
 
+    std::cout << "[Encoder] Stream packed. Finalizing asset." << std::endl;
     return true;
 }
