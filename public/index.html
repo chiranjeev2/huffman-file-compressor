@@ -32,16 +32,14 @@
 <script src="huffman_wasm.js"></script>
 
 <script>
-    let huffModule;
+    // Emscripten exposes 'Module' globally when MODULARIZE is disabled.
+    // We bind our success listener directly to its runtime initialization event hooks.
+    var isEngineReady = false;
 
-    // Use the official Emscripten default initialization target promise
-    Module().then(instance => {
-        huffModule = instance;
+    Module.onRuntimeInitialized = function() {
+        isEngineReady = true;
         document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via WebAssembly.";
-    }).catch(err => {
-        console.error("Initialization block fault:", err);
-        document.getElementById('status').innerText = "System loading sequence active.";
-    });
+    };
 
     function processFile(isCompress) {
         const fileInput = document.getElementById('fileInput');
@@ -50,53 +48,59 @@
             return;
         }
         
+        if (!isEngineReady || !Module.FS) {
+            alert("WebAssembly engine is not fully initialized yet!");
+            return;
+        }
+        
         const file = fileInput.files[0];
         const reader = new FileReader();
         document.getElementById('status').innerText = "Processing streaming data arrays...";
 
         reader.onload = function(e) {
-            if (!huffModule || !huffModule.FS) {
-                alert("WebAssembly engine is not ready yet!");
-                return;
+            try {
+                const inputBytes = new Uint8Array(e.target.result);
+                const inputName = "input_target";
+                const outputName = "output_target";
+
+                // 1. Mount input binary data straight into Virtual Memory Filesystem
+                Module.FS.writeFile(inputName, inputBytes);
+
+                // 2. Execute the compiled C++ operations directly via global scope symbols
+                let result = isCompress 
+                    ? Module._compress(inputName, outputName)
+                    : Module._decompress(inputName, outputName);
+
+                if (result !== 0) {
+                    document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
+                    return;
+                }
+
+                // 3. Extract the completed binary block out of the sandbox file tree
+                const outputBytes = Module.FS.readFile(outputName);
+                const blob = new Blob([outputBytes], { type: "application/octet-stream" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                
+                // 4. Clean file download naming layout rules
+                if (isCompress) {
+                    const lastDot = file.name.lastIndexOf('.');
+                    const base = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
+                    link.download = base + ".huff";
+                } else {
+                    link.download = file.name.replace(".huff", "");
+                }
+                link.click();
+
+                document.getElementById('status').innerText = "Success! Task complete.";
+
+                // 5. Clean allocation map pointers from MEMFS storage context
+                Module.FS.unlink(inputName);
+                Module.FS.unlink(outputName);
+            } catch (err) {
+                console.error("Processing exception occurred:", err);
+                document.getElementById('status').innerText = "Error tracking data layers inside internal memory allocations.";
             }
-
-            const inputBytes = new Uint8Array(e.target.result);
-            const inputName = "input_target";
-            const outputName = "output_target";
-
-            // Mount input binary data straight into Virtual Memory Filesystem
-            huffModule.FS.writeFile(inputName, inputBytes);
-
-            // Execute the compiled C++ operations directly
-            let result = isCompress 
-                ? huffModule._compress(inputName, outputName)
-                : huffModule._decompress(inputName, outputName);
-
-            if (result !== 0) {
-                document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
-                return;
-            }
-
-            // Extract the completed binary block
-            const outputBytes = huffModule.FS.readFile(outputName);
-            const blob = new Blob([outputBytes], { type: "application/octet-stream" });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            
-            if (isCompress) {
-                const lastDot = file.name.lastIndexOf('.');
-                const base = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
-                link.download = base + ".huff";
-            } else {
-                link.download = file.name.replace(".huff", "");
-            }
-            link.click();
-
-            document.getElementById('status').innerText = "Success! Task complete.";
-
-            // Clean allocation map pointers
-            huffModule.FS.unlink(inputName);
-            huffModule.FS.unlink(outputName);
         };
 
         reader.readAsArrayBuffer(file);
