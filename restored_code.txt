@@ -1,0 +1,89 @@
+Ninclude Td?tdtut)cr+l
+Ninclude 1ae {:eader+do *e>ppT: Ninclude <.t:Pr: Ninclude <# gaor": Ninclude <string"   d r
+.
+rrrnp ScroiicitlC
+Ninclude <;stream": 
+zer/.>hrizer/.3tao delete rootf . : 
+#tld zer/.>hhi(tu o n;odes(Hu;;manFtdt(r
+( rrlqu s(a std::stringE-ztao
+    i; (=os/.r returnf
+    i; (nodezr(mreea;()) q
+        hu;;manyodes[nodezr)rq tM b str,lrraC() .BTstH : strf // Handle single character edgez:ase
+        returnf
+    . :     generateyodes(nodezr)b( t}-8p  H01rf
+    generateyodes(nodezr(Mcc}t0p p  H> H)f
+. : 
+I;H zer/.>hhtfd+(6gt6i
+0zc:stringEe )r*acq_iqu s(a std::stringEapput.rtth) q
+    std::i;stream in>U cceder{)tth}- rgstnhhHlnarC)f
+    i; (=,n>U Sf;h r
+(w)) return ;alsef
+
+    // >ai safder
+ie re.t(s u.i     ipluF{olexlear()f
+    uint>fc_t totalBCtes b 0f
+    char chf
+    while (in>U Si)n:h)) q
+        ;re.#t. He[static_cast<uint=t< su:h)M8p ih
+        totalBCtes8p ih
+    . :     
+    i; (totalBCtes bb 0) q // zz:;yase: ztrraC >U (b        Bit+do F u)iter(output.rtth)f
+        uint+ct < artgic b H=ur:#ufUvdyf
+        uint>fc_t si&e b 0f
+        uint> ht<  
+. HeSi&e b 0f
+        writer?kRo}N),u)ite(reinterpret_cast<char*vistrtgic)}a:)f
+        writer?kRo}N),u)ite(reinterpret_cast<char*vis6 rtcrtoi.tih
+        writer?kRo}N),u)ite(reinterpret_cast<char*visaa2ieSi&e)}eqrf
+        return truef
+    . : 
+    // =aia
+uild F)ee
+    std::prioritC_.t:.wlu;;manFtdt(riqf rgm) gaor<Hu;;manFtdt(rr(a
+u odeyomparator"aHnHeapf
+    ;or (autoE r ,r : ;re.#t. He) q
+        minHeap,rwn(new Hu;;manFtdtc)
+,r,ifd}t
+r ,rPo:ond))f
+    . : 
+    while (minHeapPs rtcc
+" hetao
+        auto le;t b minHeap,qp()f minHeap,rtdetih
+        auto right b minHeap,qp()f minHeap,rtdetih
+        auto parent b new Hu;;manFtdtc(
+( tzr)ipluuencC 8ze:c
+run;re.t(on} b( t}ze:ck_i        aHnHeap,rwn(parent)f
+    . :     root b minHeap,qp()f
+
+    // +ii <tot yodes
+    generateyodes(root} H1rf
+
+    // .); r/ite to yustom BinarC >intrtt
+    Bit+do F u)iter(output.rtth)f
+    autoEapStream b writer?kRo}N)f
+
+    uint+ct < artgic b H=ur:#ufUvdyf
+    uint> ht<  
+. HeSi&e b static_cast<uint> ht< sus+iuF{olePs rtccs,h
+
+    outStream,u)ite(reinterpret_cast<char*vistrtgic)}C
+rt2oHrtgic))f
+    outStream,u)ite(reinterpret_cast<char*visaotalBCtes)}C
+rt2osqtalBCtes))f
+    outStream,u)ite(reinterpret_cast<char*visaa2ieSi&e)}C
+rt2os
+. HeSi&e))f
+
+    ;or (autoE r ,r : ;re.#t. He) q
+        uint=t< eo b pair,ifdqmc         uint>fc_t ; b pairPo:ondf
+        outStream,u)ite(reinterpret_cast<char*visl*aon
+rt2oho))f
+        outStream,u)ite(reinterpret_cast<char*vise )}C
+rt2osinne_i    a!
+
+    in>U Se
+imnue_i    e )hU SyiSgg(0}- rgstnhhHtgc,h
+    while (in>U Si)n:h)) q
+        writer,u)iteBits(hu;;manyodes[static_cast<uint=t< su:h)M)f
+    . : 
+    retu

@@ -1,0 +1,9 @@
+*.o
+huffman
+*.huff
+.DS_Store
+build/
+node_modules/
+
+.vercel
+.env*

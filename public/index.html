@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huffman File Compressor (WebAssembly)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .container {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        h1 { color: #4fc3f7; margin-top: 0; }
+        .box {
+            border: 2px dashed #444;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 20px 0;
+            background: #252525;
+        }
+        button {
+            background: #0288d1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #039be5; }
+        #stats {
+            background: #1565c0;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Huffman File Compressor</h1>
+    <p>Powered by C++17 & WebAssembly for near-native in-browser execution speed.</p>
+    
+    <div class="box">
+        <input type="file" id="fileInput"><br><br>
+        <button onclick="processFile(true)">Compress File</button>
+        <button onclick="processFile(false)" style="background:#00897b;">Decompress (.huff)</button>
+    </div>
+
+    <div id="status">Ready.</div>
+    <div id="stats"></div>
+</div>
+
+<script src="huffman_wasm.js"></script>
+
+<script>
+    // Wait for WebAssembly Module initialization
+    let huffModule;
+    Module().then(instance => {
+        huffModule = instance;
+        document.getElementById('status').innerText = "WebAssembly Engine Loaded.";
+    });
+
+    async function processFile(isCompress) {
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput.files.length === 0) {
+            alert("Please select a file first!");
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        
+        document.getElementById('status').innerText = "Processing processing data stream...";
+
+        reader.onload = function(e) {
+            const arrayBuffer = e.target.result;
+            const uint8Array = new Uint8Array(arrayBuffer);
+
+            // 1. Write user file into Emscripten's virtual memory file system (MEMFS)
+            const inputName = "input_temp";
+            const outputName = isCompress ? "output.huff" : "output_restored";
+            
+            huffModule.FS.writeFile(inputName, uint8Array);
+
+            // 2. Invoke our Wrapper Plain C Functions compiled out of C++
+            let result;
+            if (isCompress) {
+                result = huffModule._compress(inputName, outputName);
+            } else {
+                result = huffModule._decompress(inputName, outputName);
+            }
+
+            if (result !== 0) {
+                document.getElementById('status').innerText = "Execution failed inside core assembly.";
+                return;
+            }
+
+            // 3. Read output bytes out of virtual filesystem space
+            const outputData = huffModule.FS.readFile(outputName);
+            
+            // 4. Trigger browser file download payload management
+            const blob = new Blob([outputData], { type: "application/octet-stream" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = isCompress ? (file.name + ".huff") : (file.name.replace(".huff", ""));
+            link.click();
+
+            document.getElementById('status').innerText = "Success! Download initiated.";
+            
+            if (isCompress) {
+                const ratio = ((outputData.length / uint8Array.length) * 100).toFixed(2);
+                const statsBox = document.getElementById('stats');
+                statsBox.style.display = "block";
+                statsBox.innerHTML = `<strong>Compression Report:</strong><br>
+                                      Original Size: ${uint8Array.length} bytes<br>
+                                      Compressed Size: ${outputData.length} bytes<br>
+                                      Efficiency Ratio: ${ratio}%`;
+            }
+
+            // Clean up virtual memory files to prevent memory leaks
+            huffModule.FS.unlink(inputName);
+            huffModule.FS.unlink(outputName);
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+</script>
+</body>
+</html>
+
