@@ -43,8 +43,9 @@ int main(int argc, char* argv[]) {
     }
     return 0;
 }
+
+// These are the core C API hooks for the web browser
 extern "C" {
-    // Returns 0 on success, -1 on failure
     int compress(const char* inputPath, const char* outputPath) {
         Encoder enc;
         return enc.compress(std::string(inputPath), std::string(outputPath)) ? 0 : -1;

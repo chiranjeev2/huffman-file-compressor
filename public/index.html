@@ -12,14 +12,13 @@
         button { background: #0288d1; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s; margin: 5px; }
         button:hover { background: #039be5; }
         #status { margin-top: 15px; font-weight: 500; color: #b0bec5; }
-        #stats { background: #1565c0; padding: 15px; border-radius: 6px; margin-top: 20px; display: none; color: white; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Huffman File Compressor</h1>
-    <p>High-performance client-side data stream processing sandbox.</p>
+    <p>Powered by C++17 & WebAssembly for near-native execution speed.</p>
     
     <div class="box">
         <input type="file" id="fileInput"><br><br>
@@ -27,20 +26,21 @@
         <button onclick="processFile(false)" style="background:#00897b;">Decompress (.huff)</button>
     </div>
 
-    <div id="status">Ready.</div>
-    <div id="stats"></div>
+    <div id="status">Loading WebAssembly Engine...</div>
 </div>
 
+<script src="huffman_wasm.js"></script>
+
 <script>
-    class HuffmanNode {
-        constructor(char, freq, left = null, right = null) {
-            this.char = char;
-            this.freq = freq;
-            this.left = left;
-            this.right = right;
-        }
-        isLeaf() { return !this.left && !this.right; }
-    }
+    let huffModule;
+    // Initialize the modularized C++ build promise
+    Module().then(instance => {
+        huffModule = instance;
+        document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via WebAssembly.";
+    }).catch(err => {
+        console.error(err);
+        document.getElementById('status').innerText = "Error loading WebAssembly modules.";
+    });
 
     function processFile(isCompress) {
         const fileInput = document.getElementById('fileInput');
@@ -51,157 +51,51 @@
         
         const file = fileInput.files[0];
         const reader = new FileReader();
-        document.getElementById('status').innerText = "Processing streaming byte layers...";
-        document.getElementById('stats').style.display = "none";
+        document.getElementById('status').innerText = "Streaming file data into WebAssembly sandbox...";
 
         reader.onload = function(e) {
-            try {
-                const inputBytes = new Uint8Array(e.target.result);
-                if (inputBytes.length === 0) {
-                    alert("File is empty!");
-                    return;
-                }
+            const inputBytes = new Uint8Array(e.target.result);
+            const inputName = "temp_input";
+            const outputName = "temp_output";
 
-                let outputBytes;
-                if (isCompress) {
-                    outputBytes = compressEngine(inputBytes);
-                } else {
-                    outputBytes = decompressEngine(inputBytes);
-                }
+            // 1. Mount data directly into WebAssembly Virtual Memory File System (MEMFS)
+            huffModule.FS.writeFile(inputName, inputBytes);
 
-                // Trigger browser down-stream save action
-                const blob = new Blob([outputBytes], { type: "application/octet-stream" });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                
-                // Optimized clean extension assignment
-                if (isCompress) {
-                    const lastDotIndex = file.name.lastIndexOf('.');
-                    const baseName = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-                    link.download = baseName + ".huff";
-                } else {
-                    let restoredName = file.name.replace(".huff", "");
-                    // Fallback to .pdf format if extension data was completely truncated
-                    if (!restoredName.includes('.')) {
-                        restoredName += ".pdf";
-                    }
-                    link.download = restoredName;
-                }
-                
-                link.click();
+            // 2. Execute your compiled C++ routines directly
+            let result = isCompress 
+                ? huffModule._compress(inputName, outputName)
+                : huffModule._decompress(inputName, outputName);
 
-                document.getElementById('status').innerText = "Success! File compiled and downloaded.";
-
-                if (isCompress) {
-                    const ratio = ((outputBytes.length / inputBytes.length) * 100).toFixed(2);
-                    const statsBox = document.getElementById('stats');
-                    statsBox.style.display = "block";
-                    statsBox.innerHTML = `<strong>Compression Report:</strong><br>
-                                          Original Size: ${inputBytes.length.toLocaleString()} bytes<br>
-                                          Compressed Size: ${outputBytes.length.toLocaleString()} bytes<br>
-                                          Efficiency Ratio: ${ratio}%`;
-                }
-            } catch (err) {
-                console.error(err);
-                document.getElementById('status').innerText = "Error: Invalid data structure layout.";
+            if (result !== 0) {
+                document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
+                return;
             }
+
+            // 3. Read output bytes out of the sandboxed filesystem space
+            const outputBytes = huffModule.FS.readFile(outputName);
+
+            // 4. Handle clean file download naming rules
+            const blob = new Blob([outputBytes], { type: "application/octet-stream" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            
+            if (isCompress) {
+                const lastDot = file.name.lastIndexOf('.');
+                const base = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
+                link.download = base + ".huff";
+            } else {
+                link.download = file.name.replace(".huff", "");
+            }
+            link.click();
+
+            document.getElementById('status').innerText = "Success! C++ execution finished. Downloading asset...";
+
+            // Memory cleanup management
+            huffModule.FS.unlink(inputName);
+            huffModule.FS.unlink(outputName);
         };
 
         reader.readAsArrayBuffer(file);
-    }
-
-    function compressEngine(bytes) {
-        const freqs = {};
-        for (let b of bytes) freqs[b] = (freqs[b] || 0) + 1;
-
-        const queue = Object.keys(freqs).map(k => new HuffmanNode(parseInt(k), freqs[k]));
-        
-        while (queue.length > 1) {
-            queue.sort((a, b) => a.freq - b.freq);
-            const left = queue.shift();
-            const right = queue.shift();
-            const parent = new HuffmanNode(null, left.freq + right.freq, left, right);
-            queue.push(parent);
-        }
-
-        const root = queue[0] || new HuffmanNode(0, 0);
-        const codes = {};
-        
-        function buildCodes(node, currentCode) {
-            if (!node) return;
-            if (node.isLeaf()) {
-                codes[node.char] = currentCode || "0";
-                return;
-            }
-            buildCodes(node.left, currentCode + "0");
-            buildCodes(node.right, currentCode + "1");
-        }
-        buildCodes(root, "");
-
-        // Serialize metadata header table
-        const header = [];
-        const uniqueChars = Object.keys(codes).length;
-        header.push(uniqueChars & 0xFF);
-        for (let char in freqs) {
-            header.push(parseInt(char));
-            const f = freqs[char];
-            header.push((f >> 24) & 0xFF, (f >> 16) & 0xFF, (f >> 8) & 0xFF, f & 0xFF);
-        }
-
-        // Bit packing sequence
-        let bitString = "";
-        for (let b of bytes) bitString += codes[b];
-
-        const outData = [...header];
-        for (let i = 0; i < bitString.length; i += 8) {
-            const byteStr = bitString.substring(i, i + 8).padEnd(8, "0");
-            outData.push(parseInt(byteStr, 2));
-        }
-
-        return new Uint8Array(outData);
-    }
-
-    function decompressEngine(bytes) {
-        let ptr = 0;
-        const uniqueChars = bytes[ptr++];
-        const freqs = {};
-        
-        for (let i = 0; i < uniqueChars; i++) {
-            const char = bytes[ptr++];
-            const count = (bytes[ptr++] << 24) | (bytes[ptr++] << 16) | (bytes[ptr++] << 8) | bytes[ptr++];
-            freqs[char] = count;
-        }
-
-        const queue = Object.keys(freqs).map(k => new HuffmanNode(parseInt(k), freqs[k]));
-        while (queue.length > 1) {
-            queue.sort((a, b) => a.freq - b.freq);
-            const left = queue.shift();
-            const right = queue.shift();
-            queue.push(new HuffmanNode(null, left.freq + right.freq, left, right));
-        }
-
-        const root = queue[0];
-        const outData = [];
-        let current = root;
-
-        let totalExpectedSymbols = Object.values(freqs).reduce((a, b) => a + b, 0);
-        let symbolsDecoded = 0;
-
-        for (let i = ptr; i < bytes.length && symbolsDecoded < totalExpectedSymbols; i++) {
-            const byte = bytes[i];
-            for (let bitIdx = 7; bitIdx >= 0 && symbolsDecoded < totalExpectedSymbols; bitIdx--) {
-                const bit = (byte >> bitIdx) & 1;
-                current = bit === 0 ? current.left : current.right;
-
-                if (current.isLeaf()) {
-                    outData.push(current.char);
-                    symbolsDecoded++;
-                    current = root;
-                }
-            }
-        }
-
-        return new Uint8Array(outData);
     }
 </script>
 </body>
