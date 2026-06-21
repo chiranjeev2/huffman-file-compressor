@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,7 +59,6 @@
         }
     </style>
 </head>
-
 <body>
 
     <div class="container">
@@ -152,17 +150,6 @@
 
             reader.readAsArrayBuffer(file);
         }
-        const inputName = "input_target";
-        const outputName = "output_target";
-
-        // 1. Write the raw bytes to the Emscripten virtual file system
-        Module.FS.writeFile(inputName, inputBytes);
-
-        // 2. Run your updated C++ paths logic
-        let result = isCompress
-            ? Module._compress(inputName, outputName)
-            : Module._decompress(inputName, outputName);
     </script>
 </body>
-
 </html>
