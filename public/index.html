@@ -1,155 +1,565 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Huffman File Compressor (WebAssembly Frontend)</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #121212;
-            color: #e0e0e0;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huffman File Compressor</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        .container {
-            background: #1e1e1e;
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid #333;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        }
+  :root {
+    --bg:        #0D1117;
+    --surface:   #161B22;
+    --surface2:  #1C2333;
+    --border:    #30363D;
+    --blue:      #58A6FF;
+    --blue-dark: #1F6FEB;
+    --green:     #3FB950;
+    --green-dark:#238636;
+    --cyan:      #39D5D5;
+    --text:      #E6EDF3;
+    --subtext:   #8B949E;
+    --error:     #F85149;
+  }
 
-        h1 {
-            color: #4fc3f7;
-            margin-top: 0;
-        }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
 
-        .box {
-            border: 2px dashed #444;
-            padding: 30px;
-            text-align: center;
-            border-radius: 8px;
-            margin: 20px 0;
-            background: #252525;
-        }
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
 
-        button {
-            background: #0288d1;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin: 5px;
-        }
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+  }
 
-        button:hover {
-            background: #039be5;
-        }
+  /* Header badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.2);
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+  }
 
-        #status {
-            margin-top: 15px;
-            font-weight: 500;
-            color: #b0bec5;
-        }
-    </style>
+  /* Title */
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  h1 .blue  { color: var(--blue); }
+  h1 .green { color: var(--green); }
+
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--subtext);
+    margin-bottom: 28px;
+  }
+  .subtitle span { color: var(--cyan); }
+
+  /* Main card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    margin-bottom: 20px;
+    background: var(--bg);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--blue);
+    background: rgba(88,166,255,0.04);
+  }
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .dropzone-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+  .dropzone-text {
+    font-size: 14px;
+    color: var(--subtext);
+  }
+  .dropzone-text strong {
+    color: var(--blue);
+    font-weight: 600;
+  }
+  .dropzone-hint {
+    font-size: 11px;
+    color: var(--subtext);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* File selected state */
+  .file-selected {
+    background: rgba(63,185,80,0.06);
+    border-color: var(--green);
+    border-style: solid;
+  }
+  .file-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--green);
+    font-weight: 600;
+    margin-top: 6px;
+    word-break: break-all;
+  }
+
+  /* Buttons */
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .btn {
+    padding: 13px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-compress {
+    background: var(--blue-dark);
+    color: white;
+    border: 1px solid var(--blue);
+  }
+  .btn-compress:hover:not(:disabled) {
+    background: var(--blue);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(88,166,255,0.3);
+  }
+  .btn-decompress {
+    background: var(--green-dark);
+    color: white;
+    border: 1px solid var(--green);
+  }
+  .btn-decompress:hover:not(:disabled) {
+    background: var(--green);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(63,185,80,0.3);
+  }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    min-height: 50px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.loading { background: var(--blue); animation: pulse 1s infinite; }
+  .status-dot.success { background: var(--green); }
+  .status-dot.error   { background: var(--error); }
+  .status-dot.idle    { background: var(--subtext); }
+  .status-text { color: var(--text); }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+    display: none;
+  }
+  .stats.show { display: grid; }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-card .num {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--blue);
+  }
+  .stat-card .num.green { color: var(--green); }
+  .stat-card .lbl {
+    font-size: 10px;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 14px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-wrap.show { display: block; }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--blue), var(--green));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--subtext);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  /* Tech pills */
+  .tech-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .pill {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    color: var(--subtext);
+    background: var(--surface2);
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 1.6rem; }
+    .btn-row { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3,1fr); }
+  }
+</style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Huffman File Compressor</h1>
-        <p>Powered by C++17 & WebAssembly for near-native execution speed.</p>
+<div class="wrapper">
 
-        <div class="box">
-            <input type="file" id="fileInput"><br><br>
-            <button onclick="processFile(true)">Compress File</button>
-            <button onclick="processFile(false)" style="background:#00897b;">Decompress (.huff)</button>
-        </div>
+  <div class="badge">WebAssembly Powered · Privacy First</div>
 
-        <div id="status">Initializing WebAssembly Core Engine...</div>
+  <h1><span class="blue">Huffman</span> <span class="green">File</span><br>Compressor</h1>
+  <p class="subtitle">// powered by <span>C++17</span> → <span>WebAssembly</span> via Emscripten</p>
+
+  <div class="tech-pills">
+    <span class="pill">C++17</span>
+    <span class="pill">WebAssembly</span>
+    <span class="pill">Emscripten</span>
+    <span class="pill">Huffman Coding</span>
+    <span class="pill">Lossless</span>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot loading" id="statusDot"></div>
+    <span class="status-text" id="statusText">Initializing WebAssembly Core Engine...</span>
+  </div>
+
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" />
+      <div class="dropzone-icon">📂</div>
+      <div class="dropzone-text"><strong>Click to choose</strong> or drag & drop a file</div>
+      <div class="dropzone-hint">any file type · files never leave your device</div>
+      <div class="file-name" id="fileName"></div>
     </div>
 
-    <script src="huffman_wasm.js"></script>
+    <div class="btn-row">
+      <button class="btn btn-compress" id="compressBtn" onclick="compressFile()" disabled>
+        ⬇ Compress File
+      </button>
+      <button class="btn btn-decompress" id="decompressBtn" onclick="decompressFile()" disabled>
+        ⬆ Decompress (.huff)
+      </button>
+    </div>
 
-    <script>
-        var isEngineReady = false;
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
 
-        Module.onRuntimeInitialized = function () {
-            isEngineReady = true;
-            document.getElementById('status').innerText = "C++ Core Engine Loaded Successfully via WebAssembly.";
-        };
+    <div class="stats" id="stats">
+      <div class="stat-card">
+        <div class="num" id="statOriginal">—</div>
+        <div class="lbl">Original</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="statCompressed">—</div>
+        <div class="lbl">Compressed</div>
+      </div>
+      <div class="stat-card">
+        <div class="num green" id="statRatio">—</div>
+        <div class="lbl">Ratio</div>
+      </div>
+    </div>
+  </div>
 
-        function processFile(isCompress) {
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) {
-                alert("Please select a file first!");
-                return;
-            }
+  <div class="footer">
+    <a href="https://github.com/chiranjeev2/huffman-file-compressor" target="_blank">GitHub</a>
+    · Built by <a href="https://chiranjeev-web.vercel.app" target="_blank">Chiranjeev Kumar</a>
+    · Files processed 100% client-side
+  </div>
 
-            if (!isEngineReady || !Module.FS || !Module.ccall) {
-                alert("WebAssembly engine is not fully initialized yet!");
-                return;
-            }
+</div>
 
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            document.getElementById('status').innerText = "Processing streaming data arrays...";
+<script src="huffman_wasm.js"></script>
 
-            reader.onload = function (e) {
-                try {
-                    const inputBytes = new Uint8Array(e.target.result);
-                    const inputName = "input_target";
-                    const outputName = "output_target";
+<script>
+let wasmReady = false;
 
-                    // 1. Mount input binary data straight into Virtual Memory Filesystem
-                    Module.FS.writeFile(inputName, inputBytes);
+// File input handling
+const fileInput  = document.getElementById('fileInput');
+const dropzone   = document.getElementById('dropzone');
+const fileName   = document.getElementById('fileName');
+const compBtn    = document.getElementById('compressBtn');
+const decompBtn  = document.getElementById('decompressBtn');
 
-                    // 2. Execute the compiled C++ operations via ccall (Safely bridges JS strings to C++ memory pointers)
-                    let result = isCompress
-                        ? Module.ccall('compress', 'number', ['string', 'string'], [inputName, outputName])
-                        : Module.ccall('decompress', 'number', ['string', 'string'], [inputName, outputName]);
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) {
+    const f = fileInput.files[0];
+    fileName.textContent = `📄 ${f.name} (${formatSize(f.size)})`;
+    dropzone.classList.add('file-selected');
+    if (wasmReady) { compBtn.disabled = false; decompBtn.disabled = false; }
+  }
+});
 
-                    if (result !== 0) {
-                        document.getElementById('status').innerText = "Execution failed inside C++ core layer.";
-                        return;
-                    }
+// Drag & drop
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) {
+    fileInput.files = e.dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
+  }
+});
 
-                    // 3. Extract the completed binary block out of the sandbox file tree
-                    const outputBytes = Module.FS.readFile(outputName);
-                    const blob = new Blob([outputBytes], { type: "application/octet-stream" });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
+// WASM ready callback
+function onWasmReady() {
+  wasmReady = true;
+  setStatus('success', 'C++ Core Engine Loaded Successfully via WebAssembly');
+  if (fileInput.files[0]) { compBtn.disabled = false; decompBtn.disabled = false; }
+}
 
-                    // 4. Clean file download naming layout rules
-                    if (isCompress) {
-                        // Keep the original extension and just add .huff to the end
-                        // Example: "Skyscanner_Prep.pdf" becomes "Skyscanner_Prep.pdf.huff"
-                        link.download = file.name + ".huff";
-                    } else {
-                        // Remove .huff, leaving the original extension perfectly intact
-                        // Example: "Skyscanner_Prep.pdf.huff" becomes "Skyscanner_Prep.pdf"
-                        link.download = file.name.replace(".huff", "");
-                    }
-                    link.click();
+function setStatus(type, msg) {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className  = 'status-dot ' + type;
+  text.textContent = msg;
+}
 
-                    document.getElementById('status').innerText = "Success! Task complete.";
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(2) + ' MB';
+}
 
-                    // 5. Clean allocation map pointers from MEMFS storage context
-                    Module.FS.unlink(inputName);
-                    Module.FS.unlink(outputName);
-                } catch (err) {
-                    console.error("Processing exception occurred:", err);
-                    document.getElementById('status').innerText = "Error tracking data layers inside internal memory allocations.";
-                }
-            };
+function showProgress() {
+  const pw = document.getElementById('progressWrap');
+  const pb = document.getElementById('progressBar');
+  pw.classList.add('show');
+  pb.style.width = '0%';
+  setTimeout(() => pb.style.width = '60%', 100);
+  setTimeout(() => pb.style.width = '90%', 600);
+}
 
-            reader.readAsArrayBuffer(file);
-        }
-    </script>
+function finishProgress() {
+  const pb = document.getElementById('progressBar');
+  pb.style.width = '100%';
+  setTimeout(() => document.getElementById('progressWrap').classList.remove('show'), 800);
+}
+
+function showStats(original, compressed) {
+  const ratio = (((original - compressed) / original) * 100).toFixed(1);
+  document.getElementById('statOriginal').textContent   = formatSize(original);
+  document.getElementById('statCompressed').textContent = formatSize(compressed);
+  document.getElementById('statRatio').textContent      = ratio + '%';
+  document.getElementById('stats').classList.add('show');
+}
+
+function compressFile() {
+  const file = fileInput.files[0];
+  if (!file || !wasmReady) return;
+  setStatus('loading', 'Compressing...');
+  showProgress();
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const inputBytes = new Uint8Array(e.target.result);
+      const inputName  = 'input_file';
+      const outputName = file.name + '.huff';
+
+      FS.writeFile(inputName, inputBytes);
+      
+      // CRITICAL FIX: Added expected 'number' return type and error handling
+      let result = Module.ccall('compress', 'number', ['string', 'string'], [inputName, outputName]);
+      if (result !== 0) throw new Error("Algorithm failed inside C++ engine.");
+
+      const outputBytes = FS.readFile(outputName);
+      finishProgress();
+      showStats(inputBytes.length, outputBytes.length);
+      setStatus('success', `Compressed: ${formatSize(inputBytes.length)} → ${formatSize(outputBytes.length)}`);
+
+      const blob = new Blob([outputBytes], { type: 'application/octet-stream' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = outputName; a.click();
+      URL.revokeObjectURL(url);
+
+      try { FS.unlink(inputName); FS.unlink(outputName); } catch(e) {}
+    } catch(err) {
+      finishProgress();
+      setStatus('error', 'Compression failed: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function decompressFile() {
+  const file = fileInput.files[0];
+  if (!file || !wasmReady) return;
+  setStatus('loading', 'Decompressing...');
+  showProgress();
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const inputBytes = new Uint8Array(e.target.result);
+      const inputName  = 'compressed.huff';
+      let outputName   = file.name.replace('.huff', '') || 'decompressed_output';
+
+      FS.writeFile(inputName, inputBytes);
+      
+      // CRITICAL FIX: Added expected 'number' return type and error handling
+      let result = Module.ccall('decompress', 'number', ['string', 'string'], [inputName, outputName]);
+      if (result !== 0) throw new Error("Algorithm failed or file is corrupted.");
+
+      const outputBytes = FS.readFile(outputName);
+      finishProgress();
+      
+      document.getElementById('statOriginal').textContent   = formatSize(inputBytes.length);
+      document.getElementById('statCompressed').textContent = formatSize(outputBytes.length);
+      document.getElementById('statRatio').textContent      = 'Restored';
+      document.getElementById('stats').classList.add('show');
+      
+      setStatus('success', `Decompressed: ${formatSize(inputBytes.length)} → ${formatSize(outputBytes.length)}`);
+
+      const blob = new Blob([outputBytes], { type: 'application/octet-stream' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = outputName; a.click();
+      URL.revokeObjectURL(url);
+
+      try { FS.unlink(inputName); FS.unlink(outputName); } catch(e) {}
+    } catch(err) {
+      finishProgress();
+      setStatus('error', 'Decompression failed: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Hook into WASM module ready
+if (typeof Module !== 'undefined') {
+  const origReady = Module.onRuntimeInitialized || function(){};
+  Module.onRuntimeInitialized = function() {
+    origReady();
+    onWasmReady();
+  };
+} else {
+  var Module = {
+    onRuntimeInitialized: onWasmReady
+  };
+}
+</script>
 </body>
 </html>
