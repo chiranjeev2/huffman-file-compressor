@@ -1,9 +1,44 @@
+# ==========================================
+# C++ Build Artifacts
+# ==========================================
 *.o
-huffman
-*.huff
-.DS_Store
+*.obj
+*.exe
+*.dll
+*.so
+*.out
+*.app
 build/
-node_modules/
+bin/
+out/
 
-.vercel
-.env*
+# ==========================================
+# Local Test Files & Compression Outputs
+# ==========================================
+# Prevents you from accidentally committing personal files
+# that you are testing the compressor with!
+*.pdf
+*.huff
+*.txt
+*.zip
+*.jpg
+*.png
+*.docx
+test_files/
+
+# ==========================================
+# OS & IDE Configuration Files
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================================
+# Web & Vercel Environments
+# ==========================================
+node_modules/
+.vercel/
+npm-debug.log
